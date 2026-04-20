@@ -81,9 +81,8 @@
 
 ## 问题反馈
 
-- Argus Console：<https://argus.bestfunc.com>
 - 问题提交：<https://github.com/bestfunc/Argus_Plugins/issues>
-- 商务合作：support@bestfunc.com
+- 商务合作：Great@bestfunc.com
 
 ## License
 
