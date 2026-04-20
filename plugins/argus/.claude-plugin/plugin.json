@@ -1,7 +1,7 @@
 {
   "name": "argus",
   "description": "Argus 远程管理代理系统的一站式接入：14 个 AI skill + MCP connector（走 OAuth 自动授权）。涵盖 Agent 盘点、健康检查、故障排查、批量操作、服务器巡检、终端、SQL、文件传输、API 代理、隧道、远程操控、远程浏览器等运维场景。安装后自动连 Argus Server 即可用。",
-  "version": "1.30.0",
+  "version": "1.31.0",
   "author": {
     "name": "Bestfunc Technology",
     "email": "Great@bestfunc.com"
