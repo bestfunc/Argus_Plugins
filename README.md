@@ -2,7 +2,11 @@
 
 [Argus](https://argus.bestfunc.com) 远程管理代理系统的 AI 助手 plugin 市场，支持 Claude Code / Qwen Code 等 CLI。
 
-一条命令接入 14 个 AI skill + Argus MCP connector，覆盖 Agent 盘点、健康检查、故障排查、批量操作、服务器巡检、远程终端、SQL、文件传输、API 代理、隧道管理、远程桌面操控、远程浏览器等场景。MCP 认证走 OAuth，首次使用自动弹出 Argus 浏览器授权页，无需手动配 token。
+一条命令接入 14 个 AI skill + 两个 MCP connector（远程 + 本地），覆盖 Agent 盘点、健康检查、故障排查、批量操作、服务器巡检、远程终端、SQL、**大文件传输**、API 代理、隧道管理、远程桌面操控、远程浏览器等场景。MCP 认证走 OAuth，首次使用自动弹出 Argus 浏览器授权页，无需手动配 token。
+
+**双 MCP 架构：**
+- `argus` (远程 HTTP) — 38 个工具，走 `https://argus.bestfunc.com/api/mcp`
+- `argus-files` (本地 stdio, 由 `@bestfunc/argus-file-mcp` 提供) — 3 个大文件工具，绕开 MCP base64 内联限制，AI context 开销与文件大小完全解耦
 
 ## 快速开始
 
@@ -17,12 +21,16 @@
 
 # 3. 查看 MCP 连接状态
 /mcp
-# 可以看到 argus 条目，首次会显示"需要认证"
+# 可以看到两个条目：
+#   argus        → 需要认证（远程 MCP）
+#   argus-files  → 本地进程，OAuth 在首次调用时触发
 
-# 4. 触发 OAuth 授权
-# 在 /mcp 列表里选中 argus → Authenticate，或直接让 AI 调一个 MCP 工具
-# 浏览器会自动打开 Argus 授权页，登录并同意授权即可（30 天有效）
+# 4. 触发 OAuth 授权（两个 MCP 分别 Authenticate 一次；第二次因同一 session 浏览器闪跳无感）
+# 或直接让 AI 调一个 MCP 工具，会自动弹浏览器
+# access_token 默认 30 天有效
 ```
+
+> Node.js 环境：`argus-files` 通过 `npx` 启动，确保 Node ≥ 18 已安装（Claude Code / Qwen Code 通常已满足）。
 
 ### Qwen Code（自动转换格式）
 

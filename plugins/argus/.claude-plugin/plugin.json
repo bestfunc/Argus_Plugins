@@ -15,6 +15,13 @@
       "type": "http",
       "url": "https://argus.bestfunc.com/api/mcp",
       "httpUrl": "https://argus.bestfunc.com/api/mcp"
+    },
+    "argus-files": {
+      "command": "npx",
+      "args": ["-y", "@bestfunc/argus-file-mcp@latest"],
+      "env": {
+        "ARGUS_ENDPOINT": "https://argus.bestfunc.com"
+      }
     }
   }
 }
