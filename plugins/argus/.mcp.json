@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "argus": {
+      "type": "http",
+      "url": "https://argus.bestfunc.com/api/mcp"
+    }
+  }
+}

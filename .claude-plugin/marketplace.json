@@ -1,0 +1,18 @@
+{
+  "name": "argus-plugins",
+  "owner": {
+    "name": "Bestfunc Technology",
+    "email": "support@bestfunc.com"
+  },
+  "metadata": {
+    "description": "Argus 远程管理代理系统的 Claude Code plugin 市场。",
+    "version": "1.30.0"
+  },
+  "plugins": [
+    {
+      "name": "argus",
+      "source": "./plugins/argus",
+      "description": "Argus 一站式接入：8 个通用 skill + OAuth 自动授权的 MCP connector。"
+    }
+  ]
+}
