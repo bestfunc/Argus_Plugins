@@ -19,10 +19,10 @@
 ### Qwen Code（自动转换格式）
 
 ```bash
-qwen extensions install bestfunc/Argus_Plugins/plugins/argus
+qwen extensions install bestfunc/Argus_Plugins:argus
 ```
 
-Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并落地。
+格式 `marketplace-url:plugin-name` — 冒号前是本仓库，冒号后是 plugin 名（`argus`）。Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并落地。
 
 ### 其他支持 MCP 的客户端（Cursor / Zed / Cline 等）
 
