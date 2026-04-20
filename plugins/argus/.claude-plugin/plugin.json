@@ -9,5 +9,12 @@
   "homepage": "https://argus.bestfunc.com",
   "repository": "https://github.com/bestfunc/Argus_Plugins",
   "license": "Apache-2.0",
-  "keywords": ["argus", "mcp", "remote-management", "agent", "devops"]
+  "keywords": ["argus", "mcp", "remote-management", "agent", "devops"],
+  "mcpServers": {
+    "argus": {
+      "type": "http",
+      "url": "https://argus.bestfunc.com/api/mcp",
+      "httpUrl": "https://argus.bestfunc.com/api/mcp"
+    }
+  }
 }
