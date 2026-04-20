@@ -1,10 +1,12 @@
 # Argus Plugins
 
-[Argus](https://argus.bestfunc.com) 远程管理代理系统的 Claude Code plugin 市场。
+[Argus](https://argus.bestfunc.com) 远程管理代理系统的 AI 助手 plugin 市场，支持 Claude Code / Qwen Code 等 CLI。
 
 一条命令接入 14 个 AI skill + Argus MCP connector，覆盖 Agent 盘点、健康检查、故障排查、批量操作、服务器巡检、远程终端、SQL、文件传输、API 代理、隧道管理、远程桌面操控、远程浏览器等场景。MCP 认证走 OAuth，首次使用自动弹出 Argus 浏览器授权页，无需手动配 token。
 
 ## 快速开始
+
+### Claude Code（原生支持）
 
 ```bash
 # 1. 添加 marketplace
@@ -14,7 +16,21 @@
 /plugin install argus@argus-plugins
 ```
 
-首次调用 MCP 工具时，Claude Code 会自动打开浏览器跳转到 Argus 授权同意页，登录并同意后即可使用。
+### Qwen Code（自动转换格式）
+
+```bash
+qwen extensions install bestfunc/Argus_Plugins/plugins/argus
+```
+
+Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并落地。
+
+### 其他支持 MCP 的客户端（Cursor / Zed / Cline 等）
+
+本仓库 skill 是纯 Markdown，按客户端各自的规范复制到对应目录即可；MCP connector 单独按客户端 UI 手动配，URL 填 `https://argus.bestfunc.com/api/mcp`，留空 OAuth Client ID/Secret 走自动注册。
+
+---
+
+**首次调用 MCP 工具**时，CLI 会打开浏览器跳转到 Argus 授权同意页，登录并同意后即可使用（OAuth 2.0 + PKCE，30 天有效）。
 
 ## 内置 skill（14 个）
 
@@ -76,7 +92,11 @@
 ## 更新
 
 ```bash
+# Claude Code
 /plugin marketplace update argus-plugins
+
+# Qwen Code
+qwen extensions update argus
 ```
 
 ## 问题反馈
