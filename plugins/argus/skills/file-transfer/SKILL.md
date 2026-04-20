@@ -27,7 +27,12 @@ allowed-tools: mcp__argus__list_agents,mcp__argus__list_files,mcp__argus__read_f
 
 ### 1. 确定目标 Agent
 
-如果用户未指定，先用 `list_agents` 列出在线 Agent。
+如果用户未指定，先用 `list_agents` 或 agent-inventory skill 找到对的 agent_id。注意**系统服务 vs 用户会话**的区别：
+
+- 系统服务 agent（`windows-xxx`）：SYSTEM 身份，**看不到**用户目录 `C:\Users\xxx\Desktop`、WSL 挂载
+- 用户会话 agent（`windows-xxx-hp` / `-bestfunc`）：真实用户身份，**能**访问用户目录和 WSL
+
+读 `/etc/hosts` 这种系统文件用系统服务；读用户桌面 / WSL 路径用用户会话。选错了会 "Permission denied" 或 "目录不存在"。
 
 ### 2. 浏览远程目录（L1）
 

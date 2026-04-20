@@ -80,13 +80,38 @@ execute_sql(
 - `limit`: 结果行数上限（默认 100，可调大）
 - `timeout`: 超时秒数（默认 30，最大 300）
 
+## 查询递进策略
+
+面对陌生库，按梯度拉数据，避免"一把 SELECT * 把 100 万行拉回来超时"：
+
+```
+Step 1  SHOW DATABASES              → 看有哪些库
+Step 2  SHOW TABLES                 → 看当前库有哪些表
+Step 3  DESCRIBE <table>            → 看字段、主键、索引
+Step 4  SELECT COUNT(*) FROM <t>    → 先看行数，别直接 SELECT *
+Step 5  EXPLAIN SELECT ...          → 复杂 JOIN / WHERE 先看执行计划
+Step 6  SELECT <cols> FROM ... LIMIT 10  → 小样本确认数据符合预期
+Step 7  SELECT <cols> FROM ... LIMIT N   → 正式拉数据（N 按业务需要）
+```
+
 ## 查询技巧
 
-- 先用 `SHOW TABLES` 或 `SHOW DATABASES` 了解数据库结构
-- 用 `DESCRIBE 表名` 查看表结构
-- 复杂查询先用 `EXPLAIN` 确认执行计划
-- 大表查询务必加 `LIMIT`，避免超时
-- 用 `COUNT(*)` 先确认数据量再拉取明细
+- **别 SELECT \***：产线库经常有 JSON/BLOB 大字段，明确列需要的字段
+- **大 JSON 字段抠值**：`JSON_UNQUOTE(JSON_EXTRACT(col, '$.key'))` 只取需要的子字段
+- **命中索引**：`WHERE id=...` / `WHERE created_at > ...` 用索引列
+- **分页拉取**：`LIMIT N OFFSET M` 分批取，记得 `ORDER BY` 避免跨页重复
+- **大结果导出**：行数超 50，转 `sql-data-export` skill 写 CSV/xlsx 文件
+- **超时调整**：默认 30s，复杂查询 `timeout=120` 或更大（上限 300s）
+
+## 时区陷阱
+
+`created_at` / `updated_at` 字段是**服务器本地时间**还是 UTC？不确定时：
+
+```sql
+SELECT NOW(), UTC_TIMESTAMP(), @@session.time_zone, @@global.time_zone;
+```
+
+跑一把确认，再决定时间范围条件怎么写。
 
 ## 授权协议（L3）
 

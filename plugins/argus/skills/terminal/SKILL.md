@@ -23,6 +23,19 @@ allowed-tools: mcp__argus__list_agents,mcp__argus__run_safe_command,mcp__argus__
 
 ## 使用流程
 
+### 0. 排查节奏（先礼后兵）
+
+碰到问题别上来就 `run_command`（L3 每次要邮箱验证码）。标准节奏：
+
+```
+①  list_agents / agent-inventory skill → 找对 agent_id
+②  get_agent_metrics → 看大局指标（L1）
+③  run_safe_command → 跑 ps / df / uptime / tasklist 等白名单只读命令摸情况
+④  找到问题后，才考虑 run_command（L3）做"动作"
+```
+
+80% 诊断问题在 ③ 就看清了。**能 L1 解决就别升 L3**——用户被验证码打扰一次少一次就少一次，审批疲劳是真实的体验问题。具体剧本见 `troubleshoot-playbook` skill。
+
 ### 1. 确定目标 Agent
 - 如果用户未指定，先用 `list_agents` 列出可用主机
 - 根据用户描述匹配（如"116 服务器"匹配名称含 116 的）

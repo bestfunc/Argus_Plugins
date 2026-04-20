@@ -85,6 +85,78 @@ delete_tunnel(tunnel_id="xxx")  # 直接通
 - 宿主机本地 Web: `target_host="127.0.0.1", target_port=8080, listen_port=38080`
 - 内网数据库: `target_host="192.168.1.200", target_port=3306, listen_port=33306`
 
+## 三种隧道类型对比
+
+| 类型 | 数据路径 | 适用场景 | 额外参数 |
+|------|---------|---------|---------|
+| **port**（默认） | Browser → Server:listen_port → Agent → target | 外部访问 Agent 内网服务 | 无 |
+| **p2p** | Agent ↔ ICE/STUN ↔ Agent | 两个 Agent 之间直连，不走 Server 带宽 | `source_agent_id` + `path_mode` |
+| **direct** | Agent(内网) → 拨号 → Agent(公网) 的 mTLS 端口 | 一端公网一端内网的数据通道，免 STUN，延迟低 | `dial_side` + `dial_host` |
+
+### port 隧道（最常用）
+
+上面示例那种：Server 监听 `listen_port`，任何访问 `argus.bestfunc.com:listen_port` 的流量经 Server → Agent → target。
+
+### p2p 隧道（Agent 到 Agent）
+
+两个 Argus Agent 之间建 WebRTC 点对点通道，用于跨机房 Agent 互访、绕开 Server 带宽。
+
+```python
+create_tunnel(
+    agent_id="北京-internal",              # 目标 agent
+    source_agent_id="上海-gateway",         # 发起方 agent
+    name="sh-to-bj-redis",
+    target_host="127.0.0.1", target_port=6379,
+    listen_port=16379,                      # 在 source_agent 本地监听
+    tunnel_type="p2p",
+    path_mode="auto",                        # auto / lan / relay
+    allow_relay_fallback=True,
+    _approval_reason="上海 gateway 要访问北京 redis 做缓存同步"
+)
+# 上海 gateway:16379 → 北京 internal:6379
+```
+
+`path_mode`：
+- `auto` — ICE 自动协商（LAN 直连 → STUN NAT 穿透 → Server 中继兜底）
+- `lan` — 强制只走同网段直连，跨网段直接失败
+- `relay` — 强制走 Server 中继（稳但慢）
+
+### direct 隧道（一端公网）
+
+**场景**：公网 SaaS ↔ 产线内网、或"反向代理"，一端必须有公网可达地址。
+
+**前置**：公网那一端 Agent 先开启 direct 监听：
+```python
+set_agent_direct_listen(
+    agent_id="公网 agent",
+    enabled=True,
+    _approval_reason="开启 direct 监听供内网产线反向拨入"
+)
+```
+
+**建隧道**：
+```python
+create_tunnel(
+    agent_id="公网 agent",                # 服务端（被拨号方）
+    source_agent_id="产线内网 agent",      # 拨号方
+    dial_side="source",                   # source 主动拨 target
+    dial_host="argus.bestfunc.com",       # 公网 agent 的可达地址
+    name="factory-to-cloud-sync",
+    target_host="127.0.0.1", target_port=8080,
+    listen_port=18080,
+    tunnel_type="direct",
+    allow_relay_fallback=True,            # direct TCP 失败时降级到 Server 中继
+    _approval_reason="产线机器主动拨到公网收集数据"
+)
+```
+
+数据路径：外部访问 `argus.bestfunc.com:18080` → 公网 Agent → direct TCP 长连 → 内网 Agent → `127.0.0.1:8080`
+
+**关键差异**（和 p2p 对比）：
+- **p2p**：两端都可能是内网，靠 STUN/TURN 打洞
+- **direct**：明确一端公网，内网端主动 TCP 拨号，无 STUN，简单可靠
+- **port**：单端隧道，访问方必须走 Server，适合让浏览器/外部系统访问内网服务
+
 ## 工作原理
 
 ```

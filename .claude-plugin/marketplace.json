@@ -12,7 +12,7 @@
     {
       "name": "argus",
       "source": "./plugins/argus",
-      "description": "Argus 一站式接入：8 个通用 skill + OAuth 自动授权的 MCP connector。"
+      "description": "Argus 一站式接入：14 个 AI skill + OAuth 自动授权的 MCP connector。"
     }
   ]
 }

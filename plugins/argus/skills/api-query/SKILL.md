@@ -95,6 +95,47 @@ proxy_api(agent_id="xxx", url=".../api/users/tom", method="DELETE")  # 直接通
 - **铁律**：重放时 Server 用数据库里保存的 url / method / body 执行
 - 同一 agent 上的 `proxy_api` 首次授权成功后，**15 分钟内无需再授权**（同工具 + 同 agent 维度）
 
+## 和 tunnel skill 联动（重要）
+
+`proxy_api_get` 是**从 Agent 发起 HTTP 请求**，只能访问 Agent 宿主机能看到的网络。
+
+**场景**：Claude Code 本地想直接 curl 内网 API（不经过 Argus MCP）→ 用 tunnel skill 把内网端口映射到公网 Server 端口，再在 Claude Code 本机 curl。
+
+### 两种方式对比
+
+```
+场景 A：AI 要分析 API 响应数据（常见）
+  → 直接 proxy_api_get，数据进入 MCP 响应给 AI
+  → 优点：零配置，authenticate 走 MCP Key
+  → 缺点：响应 size 大（>100KB）会超 MCP 协议限制
+
+场景 B：要给 Claude Code 本地脚本/Bash 用（调试外部工具）
+  → 先 create_tunnel 把内网 80 端口映射到 argus.bestfunc.com:38080
+  → Claude Code 本机 curl https://argus.bestfunc.com:38080/api/...
+  → 优点：数据不进 MCP 响应，适合大 payload、二进制下载、WebSocket
+  → 缺点：要建隧道、公网暴露、用完要删
+```
+
+### 典型联动
+
+```
+# 1. 建隧道把 Agent 内网的 API 服务暴露到公网
+create_tunnel(
+    agent_id=..., name="debug-api",
+    target_host="192.168.1.100", target_port=3000,
+    listen_port=38080, _approval_reason="调试 API"
+)
+
+# 2a. AI 访问（proxy_api_get）：从 Agent 出站，响应进 MCP
+proxy_api_get(agent_id=..., url="http://192.168.1.100:3000/health")
+
+# 2b. Claude Code 本机访问（Bash）：从 argus.bestfunc.com 中转
+# Bash: curl -s https://argus.bestfunc.com:38080/health
+
+# 3. 用完清理
+delete_tunnel(mapping_id=...)
+```
+
 ## 工作组级约束
 
 管理员可能额外限制：

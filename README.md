@@ -2,7 +2,7 @@
 
 [Argus](https://argus.bestfunc.com) 远程管理代理系统的 Claude Code plugin 市场。
 
-一条命令接入 8 个通用 AI skill + Argus MCP connector，覆盖远程终端、SQL 查询、文件传输、API 代理、隧道管理、远程桌面操控、远程浏览器等场景。MCP 认证走 OAuth，首次使用自动弹出 Argus 浏览器授权页，无需手动配 token。
+一条命令接入 14 个 AI skill + Argus MCP connector，覆盖 Agent 盘点、健康检查、故障排查、批量操作、服务器巡检、远程终端、SQL、文件传输、API 代理、隧道管理、远程桌面操控、远程浏览器等场景。MCP 认证走 OAuth，首次使用自动弹出 Argus 浏览器授权页，无需手动配 token。
 
 ## 快速开始
 
@@ -16,18 +16,48 @@
 
 首次调用 MCP 工具时，Claude Code 会自动打开浏览器跳转到 Argus 授权同意页，登录并同意后即可使用。
 
-## 内置 skill（8 个）
+## 内置 skill（14 个）
+
+按使用频次分层：
+
+**基础定位 & 诊断**（最常用，先看这几个）
 
 | Slash 命令 | 用途 |
 |---|---|
-| `/argus:file-transfer` | 上传/下载文件到宿主机 |
+| `/argus:agent-inventory` | 机器盘点 — 从"116 服务器"匹配到 agent_id |
+| `/argus:agent-health-check` | 指标查看 — CPU/内存/磁盘/GPU/Top进程 |
+| `/argus:troubleshoot-playbook` | 故障排查标准剧本（CPU/磁盘/内存/网络） |
+
+**基础工具**
+
+| Slash 命令 | 用途 |
+|---|---|
 | `/argus:terminal` | 远程终端命令（默认白名单 L1，任意命令 L3 审批） |
+| `/argus:file-transfer` | 上传/下载文件到宿主机 |
 | `/argus:sql-query` | SQL 查询（只读 L1 + 全量 L3） |
 | `/argus:api-query` | HTTP API 代理（GET L1 + 全方法 L2） |
-| `/argus:tunnel` | 端口映射隧道管理 |
-| `/argus:computer-use` | 远程桌面操控（截图/鼠标/键盘） |
-| `/argus:remote-browser` | Chrome CDP 远程控制 |
-| `/argus:mcp-authorization` | MCP 三级授权协议说明（L1/L2/L3） |
+| `/argus:tunnel` | 端口映射/P2P/direct 三类隧道管理 |
+
+**进阶与组合**
+
+| Slash 命令 | 用途 |
+|---|---|
+| `/argus:bulk-ops` | 批量操作 — 一组 agent 并行执行同一操作 |
+| `/argus:server-audit` | 服务器巡检报告（模板化输出） |
+| `/argus:sql-data-export` | SQL 结果导出成 CSV/Excel/JSON |
+
+**专项**
+
+| Slash 命令 | 用途 |
+|---|---|
+| `/argus:computer-use` | 远程桌面操控（截图/鼠标/键盘，工业软件 GUI） |
+| `/argus:remote-browser` | Chrome CDP 远程自动化（比 computer-use 优先） |
+
+**协议说明**
+
+| Slash 命令 | 用途 |
+|---|---|
+| `/argus:mcp-authorization` | MCP 三级授权协议（L1/L2/L3），所有 L2/L3 工具调用前参考 |
 
 每个 skill 的详细说明见 [plugins/argus/skills/](plugins/argus/skills/) 下对应目录的 `SKILL.md`。
 

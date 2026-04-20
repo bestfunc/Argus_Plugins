@@ -193,6 +193,22 @@ get_clipboard()     → L2（15 分钟内免审批）
 - **铁律**：重放时 Server 用数据库里保存的参数执行，改 x/y/text 无效
 - `_approval_reason` 每次都要具体："点击什么按钮"、"输入什么内容"，会写入审计日志
 
+## 何时用 computer-use vs remote-browser vs terminal
+
+目标是**能用 API 就别用 GUI**，能少 L3 审批就少：
+
+| 目标 | 优先 | 次选 | 最后 |
+|------|------|------|------|
+| 跑命令 / 看日志 | `terminal` (run_safe_command L1) | `terminal` (run_command L3) | — |
+| 访问 HTTP API | `api-query` (proxy_api_get L1) | `proxy_api` L2 | — |
+| 操作网页 | `remote-browser`（CDP，能自动化 + 结构化取 DOM） | `computer-use`（点坐标） | — |
+| 配置工业软件（BestPLC / 扫描仪 / 自研 GUI） | `computer-use`（没 API 只能点） | — | — |
+| 填 Win32 对话框 / 老系统 | `computer-use` | — | — |
+
+**remote-browser 比 computer-use 优先**：CDP 能结构化拿 DOM、精确找元素、模拟点击比像素坐标点击可靠 10 倍，而且只需要启动一次 Chrome（一次 L3）之后基本走 CDP 协议（不再审批）。
+
+**computer-use 的 L3 放大问题**：click / double_click / right_click / key / type_text 每一次都是 L3，复杂操作（开软件 → 点菜单 → 填表 → 保存）可能 10 次 L3 = 10 封邮件。事先和用户讲清楚步骤数和预计 L3 次数。
+
 ## 注意事项
 
 - 使用**用户会话 Agent**（有桌面环境）
