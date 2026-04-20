@@ -9,28 +9,49 @@
 ### Claude Code（原生支持）
 
 ```bash
-# 1. 添加 marketplace
+# 1. 添加 marketplace（在 Claude Code 会话里输入）
 /plugin marketplace add bestfunc/Argus_Plugins
 
 # 2. 安装 argus plugin（包含 14 个 skill + MCP connector）
 /plugin install argus@argus-plugins
+
+# 3. 查看 MCP 连接状态
+/mcp
+# 可以看到 argus 条目，首次会显示"需要认证"
+
+# 4. 触发 OAuth 授权
+# 在 /mcp 列表里选中 argus → Authenticate，或直接让 AI 调一个 MCP 工具
+# 浏览器会自动打开 Argus 授权页，登录并同意授权即可（30 天有效）
 ```
 
 ### Qwen Code（自动转换格式）
 
 ```bash
+# 1. 安装扩展（marketplace-url:plugin-name 格式）
 qwen extensions install bestfunc/Argus_Plugins:argus
+
+# 2. 重启 Qwen Code 让 MCP 配置生效
+qwen
+
+# 3. 查看 MCP 连接状态
+/mcp
+# argus 条目首次会显示 ✗ 已断开 / Needs authentication
+
+# 4. 触发 OAuth 授权
+/mcp auth argus
+# 或直接让 AI 调一个 MCP 工具；浏览器打开 Argus 授权页，
+# 登录 + 同意后自动完成，回到 /mcp 即可看到 ✓ Connected
 ```
 
-格式 `marketplace-url:plugin-name` — 冒号前是本仓库，冒号后是 plugin 名（`argus`）。Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并落地。
+Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并写入 `~/.qwen/extensions/argus/qwen-extension.json`。
 
 ### 其他支持 MCP 的客户端（Cursor / Zed / Cline 等）
 
-本仓库 skill 是纯 Markdown，按客户端各自的规范复制到对应目录即可；MCP connector 单独按客户端 UI 手动配，URL 填 `https://argus.bestfunc.com/api/mcp`，留空 OAuth Client ID/Secret 走自动注册。
+本仓库 skill 是纯 Markdown，按客户端各自的规范复制到对应目录即可；MCP connector 单独按客户端 UI 手动配，URL 填 `https://argus.bestfunc.com/api/mcp`，留空 OAuth Client ID/Secret 走自动注册（OAuth 2.0 + PKCE + RFC 7591 DCR）。
 
 ---
 
-**首次调用 MCP 工具**时，CLI 会打开浏览器跳转到 Argus 授权同意页，登录并同意后即可使用（OAuth 2.0 + PKCE，30 天有效）。
+**OAuth 授权流程**：首次使用浏览器会跳转到 Argus 授权同意页，登录 Argus 账号并同意授权后，access_token 默认 30 天有效，到期会自动静默刷新。随时可以在 Argus Console → 我 → 已授权应用 里撤销。
 
 ## 内置 skill（14 个）
 
