@@ -18,7 +18,7 @@
     },
     "argus-files": {
       "command": "npx",
-      "args": ["-y", "@bestfunc/argus-file-mcp@latest"],
+      "args": ["-y", "@bestfunc-com/argus-file-mcp@latest"],
       "env": {
         "ARGUS_ENDPOINT": "https://argus.bestfunc.com"
       }

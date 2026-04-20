@@ -6,7 +6,7 @@
 
 **双 MCP 架构：**
 - `argus` (远程 HTTP) — 38 个工具，走 `https://argus.bestfunc.com/api/mcp`
-- `argus-files` (本地 stdio, 由 `@bestfunc/argus-file-mcp` 提供) — 3 个大文件工具，绕开 MCP base64 内联限制，AI context 开销与文件大小完全解耦
+- `argus-files` (本地 stdio, 由 `@bestfunc-com/argus-file-mcp` 提供) — 3 个大文件工具，绕开 MCP base64 内联限制，AI context 开销与文件大小完全解耦
 
 ## 快速开始
 

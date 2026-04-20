@@ -19,7 +19,7 @@ allowed-tools: mcp__argus__list_agents,mcp__argus__list_files,mcp__argus__read_f
 | 上传本地大文件（> 1 MB） | `argus-files:upload_file` / `upload_to_sandbox` | 同上 |
 | 上传短文本（< 100 KB） | `argus:upload_file` | L3 审批流程保护 |
 
-**为什么分两条路：** 远程 MCP 的 upload_file / download_file 用 base64 内联，13 MB 的 exe 编码后 17.6 MB 会直接爆 AI context。本地 MCP 通过 `npx` 启动的 `@bestfunc/argus-file-mcp` 进程，读本地文件 → HTTP multipart 直传 Argus Server(MinIO) → 推送 Agent，AI 只看到 `{transfer_id, size, status}` 短 JSON。
+**为什么分两条路：** 远程 MCP 的 upload_file / download_file 用 base64 内联，13 MB 的 exe 编码后 17.6 MB 会直接爆 AI context。本地 MCP 通过 `npx` 启动的 `@bestfunc-com/argus-file-mcp` 进程，读本地文件 → HTTP multipart 直传 Argus Server(MinIO) → 推送 Agent，AI 只看到 `{transfer_id, size, status}` 短 JSON。
 
 ## 可用工具
 
@@ -123,7 +123,7 @@ argus-files:upload_file(
 **必须用本地 MCP（`argus-files:*`）**——远程 MCP 的 base64 编码会把 13 MB 的 exe 变成 17.6 MB 的字符串直接爆 AI context window。
 
 本地 MCP 工作原理：
-1. `@bestfunc/argus-file-mcp` 通过 npx 启动本地 Node 进程
+1. `@bestfunc-com/argus-file-mcp` 通过 npx 启动本地 Node 进程
 2. 进程读本地文件 → HTTP multipart 直传 `https://argus.bestfunc.com/api/transfers/upload`
 3. Server 入 MinIO → WebSocket 通知 Agent → Agent 从 MinIO 拉回来
 4. AI 只看到 `{transfer_id, file_size, status}` 这种短 JSON
