@@ -1,0 +1,10 @@
+{
+  "name": "argus",
+  "version": "1.30.0",
+  "description": "Argus 远程管理代理系统接入：14 个 AI skill + Argus MCP connector（OAuth 自动授权，30 天有效）。",
+  "mcpServers": {
+    "argus": {
+      "httpUrl": "https://argus.bestfunc.com/api/mcp"
+    }
+  }
+}
