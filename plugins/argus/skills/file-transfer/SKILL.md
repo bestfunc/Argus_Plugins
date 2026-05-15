@@ -3,7 +3,7 @@ name: file-transfer
 display_name: 文件传输
 description: 通过 Argus Agent 上传/下载文件到宿主机。小文件 / 文本用远程 MCP（argus:* 前缀工具，受 path_deny 约束 + L2/L3 审批）；**大文件必须用本地 MCP（argus-files:* 前缀工具）**——走 HTTP 直连绕开 MCP base64 限制，AI context 与文件大小解耦。
 user-invocable: true
-allowed-tools: mcp__argus__list_agents,mcp__argus__list_files,mcp__argus__read_file,mcp__argus__download_file,mcp__argus__upload_to_sandbox,mcp__argus__upload_file,mcp__plugin_argus_argus_files__upload_file,mcp__plugin_argus_argus_files__upload_to_sandbox,mcp__plugin_argus_argus_files__download_file,mcp__argus__run_safe_command,mcp__argus__run_command
+allowed-tools: mcp__argus__list_agents,mcp__argus__list_files,mcp__argus__read_file,mcp__argus__grep_file,mcp__argus__file_search,mcp__argus__download_file,mcp__argus__upload_to_sandbox,mcp__argus__upload_file,mcp__plugin_argus_argus_files__upload_file,mcp__plugin_argus_argus_files__upload_to_sandbox,mcp__plugin_argus_argus_files__download_file,mcp__argus__run_safe_command,mcp__argus__run_command
 ---
 
 # 文件传输
@@ -29,11 +29,13 @@ allowed-tools: mcp__argus__list_agents,mcp__argus__list_files,mcp__argus__read_f
 |------|------|------|
 | `list_agents` | 🟢 L1 | 列出可用 Agent |
 | `list_files` | 🟢 L1 | 浏览远程目录 |
-| `read_file` | 🟢 L1 | 读取文本文件内容（受工作组 `path_deny` 约束） |
-| `download_file` | 🟢 L1 | 从 Agent 下载**并把内容返回 AI**（仅适合小文本） |
-| `upload_to_sandbox` | 🟡 L2 | base64 上传到沙盒目录，**小文件用**。首次授权 + 15 分钟快路径 |
-| `upload_file` | 🔴 L3 | base64 上传到任意路径，**小文件用**。每次邮箱审批 |
-| `run_safe_command` | 🟢 L1 | 辅助（创建目录、查看属性等只读） |
+| `read_file` | 🟢 L1 | 读取文本文件内容,**支持 offset/size 分片**(受工作组 `path_deny` 约束) |
+| `grep_file` | 🟢 L1 | 在文件里行级正则搜索(流式扫描,适合 GB 级日志) |
+| `file_search` | 🟢 L1 | 按文件名 glob 递归找文件(等价 `find -name`) |
+| `download_file` | 🟢 L1 | 从 Agent 下载**并把内容返回 AI**(仅适合小文本) |
+| `upload_to_sandbox` | 🟡 L2 | base64 上传到沙盒目录,**小文件用**。首次授权 + 15 分钟快路径 |
+| `upload_file` | 🔴 L3 | base64 上传到任意路径,**小文件用**。每次邮箱审批 |
+| `run_safe_command` | 🟢 L1 | 辅助(创建目录、查看属性等只读) |
 | `run_command` | 🔴 L3 | 解压、移动、链接等需要写入的辅助命令 |
 
 ### 本地 MCP（`argus-files:*`）—— 大文件首选
@@ -65,10 +67,77 @@ list_files(agent_id="xxx", path="C:\\Users" 或 "/home")
 
 ### 3. 读取文件内容到 AI 上下文（L1）
 
+**铁律:读之前先看大小**。先 `list_files` 拿到目标文件的 `size`,再决定怎么读。
+
+#### 3.1 小文件(< 200KB):整文件读
+
 ```python
-# 读文本文件内容，用 argus:read_file —— 内容会返回 AI 用于分析
 read_file(agent_id="xxx", path="/etc/nginx/nginx.conf")
+# 返回 JSON: {content, encoding, size, offset, next_offset, truncated}
 ```
+
+#### 3.2 中等文件(200KB ~ 1MB):分片读
+
+```python
+# 读首 100KB
+r1 = read_file(agent_id="xxx", path="/var/log/app.log", size=100000)
+# r1.truncated=true → 接着读下一片
+r2 = read_file(agent_id="xxx", path="/var/log/app.log",
+               offset=r1.next_offset, size=100000)
+```
+
+每片只占 ~100KB context,翻到 truncated=false 就读完了。
+
+#### 3.3 大文件(> 1MB) — **不要硬读**
+
+整读必爆 context,挑下面任一:
+
+**A. 用 grep_file 搜关键内容(首选)**
+```python
+# 1GB 的应用日志找最近报错
+grep_file(
+    agent_id="xxx",
+    path="C:\\app\\logs\\service.log",
+    pattern="ERROR|FATAL|panic",
+    before=2, after=10,           # 命中前后各看 2/10 行
+    max_results=50,
+    ignore_case=True,
+)
+# 返回 matches:[{line_number, line, before:[...], after:[...]}]
+# 只占几 KB context,搞定 GB 级文件
+```
+
+**B. 拿命中行号,用 read_file offset 精确读上下文**
+```python
+# grep_file 命中行 12345,要看附近 50 行原始格式
+# 估算偏移:平均行长 200B,12345 × 200 ≈ 2.5MB
+read_file(agent_id="xxx", path="/var/log/app.log",
+          offset=2400000, size=20000)
+```
+
+**C. 下载到本地用 Read 工具**
+```python
+argus-files:download_file(agent_id="xxx",
+                          remote_path="/var/log/big.log",
+                          local_path="/tmp/big.log")
+# 本地用 Read(file_path="/tmp/big.log", offset=..., limit=...) 翻页看
+```
+
+### 3.5 按文件名找(L1)
+
+```python
+# 找配置文件
+file_search(agent_id="xxx", root="/etc", pattern="*.conf", max_depth=3)
+
+# 找最近改动的日志
+file_search(agent_id="xxx", root="C:\\ProgramData", pattern="*.log")
+# 返回 hits:[{path, size, mod_time}] —— 按 mod_time 排序找最新即可
+
+# only_files=false 想拿到目录列表
+file_search(agent_id="xxx", root="/home", pattern="*", only_files=False, max_depth=1)
+```
+
+Glob 用 Go `filepath.Match`(类似 shell),**不支持 `**` 跨层匹配**,要跨层调大 `max_depth`。
 
 ### 4. 下载大文件到本地（本地 MCP）
 
@@ -150,7 +219,10 @@ argus-files:upload_file(
 
 ## 注意事项
 
-- `read_file` 有大小限制（默认 1MB，可远程改）；大文件读内容用 `argus-files:download_file` 先存盘再用 `Read` 工具打开
+- `read_file` Agent 端硬上限 1MB/次,**大文件务必带 `size` 分片读**或改用 `grep_file` / 本地下载
+- `grep_file` 用 Go RE2 正则语法,不是 PCRE(没有 lookaround、back-reference;`\d` `\w` 支持)
+- `file_search` 单层 glob,不递归通配(`**` 不行);跨层用 `max_depth` 控制
+- 远程命令行 `run_command`(L3) 可以跑 `tail/head/grep/find` 等系统命令,但**优先用专用工具**(grep_file/file_search),它们流式且跨平台一致,不需要审批
 - 文件通过 Server 中转（Agent ↔ MinIO ↔ Server），不走 P2P
 - Windows 路径反斜杠要双写 `\\`
 - 子 Agent（用户会话）能访问 WSL 和用户私有目录
