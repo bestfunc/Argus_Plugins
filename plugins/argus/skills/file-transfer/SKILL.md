@@ -93,19 +93,46 @@ r2 = read_file(agent_id="xxx", path="/var/log/app.log",
 整读必爆 context,挑下面任一:
 
 **A. 用 grep_file 搜关键内容(首选)**
+
+调试日志的**铁律:一定带行范围**,否则全文搜会被早期内容把 max_results 吃完。
+
 ```python
-# 1GB 的应用日志找最近报错
+# 1) 查最近报错 — tail_lines 最常用(等价 tail -n N | grep)
 grep_file(
     agent_id="xxx",
     path="C:\\app\\logs\\service.log",
     pattern="ERROR|FATAL|panic",
+    tail_lines=3000,              # 只扫最后 3000 行
     before=2, after=10,           # 命中前后各看 2/10 行
     max_results=50,
     ignore_case=True,
 )
-# 返回 matches:[{line_number, line, before:[...], after:[...]}]
-# 只占几 KB context,搞定 GB 级文件
+# 返回 matches + file_lines(全文总行数) + window_start/end(实际扫描的行范围)
+
+# 2) 已知行号区间(如启动日志在 9700-10049 行) — start_line/end_line
+grep_file(
+    agent_id="xxx", path="/var/log/daemon.log",
+    pattern="ERROR",
+    start_line=9700, end_line=10049,
+)
+
+# 3) 排除噪声(grep -v) — invert=true
+grep_file(
+    agent_id="xxx", path="/var/log/app.log",
+    pattern="DEBUG|TRACE",        # 排除所有 DEBUG/TRACE 行
+    invert=True,
+    tail_lines=1000,
+)
+
+# 4) 全文搜配置项 — 配置文件不大,不用范围
+grep_file(
+    agent_id="xxx", path="/etc/nginx/nginx.conf",
+    pattern="^\\s*server_name\\s",
+    ignore_case=True,
+)
 ```
+
+⚠️ **不带行范围 = 默认从头扫**,1GB 日志命中 max_results=100 后早期就 truncated 了,看不到最近的。
 
 **B. 拿命中行号,用 read_file offset 精确读上下文**
 ```python
