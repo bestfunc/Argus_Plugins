@@ -25,39 +25,38 @@ Claude Code (本地 Python/Bash)
 
 ### 1. 查找 Chrome 路径
 
-Windows 上用 encodedcommand 查找：
+Windows 直接用 `shell="powershell"`,server 替你处理转义,**不用手动 base64**:
 
-```bash
-# 编码 PowerShell 查找命令
-python3 -c "
-import base64
-cmd = '''
-\$paths = @(
-    \"\$env:ProgramFiles\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe\",
-    \"\${env:ProgramFiles(x86)}\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe\",
-    \"\$env:LocalAppData\\\\Google\\\\Chrome\\\\Application\\\\chrome.exe\",
-    \"\$env:ProgramFiles\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\",
-    \"\${env:ProgramFiles(x86)}\\\\Microsoft\\\\Edge\\\\Application\\\\msedge.exe\"
+```python
+run_command(
+    agent_id="windows-xxx",
+    shell="powershell",
+    command='''$paths = @(
+    "$env:ProgramFiles\\Google\\Chrome\\Application\\chrome.exe",
+    "${env:ProgramFiles(x86)}\\Google\\Chrome\\Application\\chrome.exe",
+    "$env:LocalAppData\\Google\\Chrome\\Application\\chrome.exe",
+    "$env:ProgramFiles\\Microsoft\\Edge\\Application\\msedge.exe",
+    "${env:ProgramFiles(x86)}\\Microsoft\\Edge\\Application\\msedge.exe"
 )
-foreach(\\\$p in \\\$paths) { if(Test-Path \\\$p) { Write-Host \\\"FOUND: \\\$p\\\" } }
-'''
-print(base64.b64encode(cmd.encode('utf-16-le')).decode())
-"
-# 然后 run_command(agent_id, "powershell -encodedcommand <encoded>")
+foreach($p in $paths) { if(Test-Path $p) { Write-Host "FOUND: $p" } }''',
+    _approval_reason="..."
+)
 ```
 
-Linux 上直接：`which google-chrome chromium-browser 2>/dev/null`
+Linux 上直接:`which google-chrome chromium-browser 2>/dev/null`
 
 ### 2. 启动 Chrome 调试模式
 
-**必须使用用户会话 Agent**（`-bestf`/`-hp` 后缀），SYSTEM 身份无桌面无法启动 Chrome。
+**必须使用用户会话 Agent**(`-bestf`/`-hp` 后缀),SYSTEM 身份无桌面无法启动 Chrome。
 
-Windows（encodedcommand 启动）：
+Windows(用 `shell="powershell"`,自然脚本无需 base64):
 ```python
-import base64
-cmd = 'Start-Process "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" -ArgumentList "--remote-debugging-port=9222","--remote-debugging-address=0.0.0.0","--user-data-dir=C:\\chrome-debug-profile","<目标URL>"'
-encoded = base64.b64encode(cmd.encode('utf-16-le')).decode()
-# run_command(user_agent_id, f"powershell -encodedcommand {encoded}")
+run_command(
+    agent_id="windows-xxx-bestf",
+    shell="powershell",
+    command='Start-Process "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" -ArgumentList "--remote-debugging-port=9222","--remote-debugging-address=0.0.0.0","--user-data-dir=C:\\chrome-debug-profile","<目标URL>"',
+    _approval_reason="..."
+)
 ```
 
 Linux：
