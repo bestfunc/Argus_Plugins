@@ -3,7 +3,7 @@ name: file-transfer
 display_name: 文件传输
 description: 通过 Argus Agent 上传/下载文件到宿主机。小文件 / 文本用远程 MCP（argus:* 前缀工具，受 path_deny 约束 + L2/L3 审批）；**大文件必须用本地 MCP（argus-files:* 前缀工具）**——走 HTTP 直连绕开 MCP base64 限制，AI context 与文件大小解耦。
 user-invocable: true
-allowed-tools: mcp__argus__list_agents,mcp__argus__list_files,mcp__argus__read_file,mcp__argus__grep_file,mcp__argus__file_search,mcp__argus__download_file,mcp__argus__upload_to_sandbox,mcp__argus__upload_file,mcp__plugin_argus_argus_files__upload_file,mcp__plugin_argus_argus_files__upload_to_sandbox,mcp__plugin_argus_argus_files__download_file,mcp__argus__run_safe_command,mcp__argus__run_command
+allowed-tools: mcp__argus__list_agents,mcp__argus__list_files,mcp__argus__read_file,mcp__argus__grep_file,mcp__argus__file_search,mcp__argus__archive_file,mcp__argus__unarchive_file,mcp__argus__download_file,mcp__argus__upload_to_sandbox,mcp__argus__upload_file,mcp__plugin_argus_argus_files__upload_file,mcp__plugin_argus_argus_files__upload_to_sandbox,mcp__plugin_argus_argus_files__download_file,mcp__argus__run_safe_command,mcp__argus__run_command
 ---
 
 # 文件传输
@@ -32,11 +32,13 @@ allowed-tools: mcp__argus__list_agents,mcp__argus__list_files,mcp__argus__read_f
 | `read_file` | 🟢 L1 | 读取文本文件内容,**支持 offset/size 分片**(受工作组 `path_deny` 约束) |
 | `grep_file` | 🟢 L1 | 在文件里行级正则搜索(流式扫描,适合 GB 级日志) |
 | `file_search` | 🟢 L1 | 按文件名 glob 递归找文件(等价 `find -name`) |
+| `archive_file` | 🟡 L2 | **打包** zip/tar.gz,可分卷(替代 `run_command` 跑 tar/zip) |
+| `unarchive_file` | 🟡 L2 | **解压** zip/tar.gz,自动识别分卷(替代 `run_command` 跑 unzip/tar -x) |
 | `download_file` | 🟢 L1 | 从 Agent 下载**并把内容返回 AI**(仅适合小文本) |
 | `upload_to_sandbox` | 🟡 L2 | base64 上传到沙盒目录,**小文件用**。首次授权 + 15 分钟快路径 |
 | `upload_file` | 🔴 L3 | base64 上传到任意路径,**小文件用**。每次邮箱审批 |
 | `run_safe_command` | 🟢 L1 | 辅助(创建目录、查看属性等只读) |
-| `run_command` | 🔴 L3 | 解压、移动、链接等需要写入的辅助命令 |
+| `run_command` | 🔴 L3 | 通用 shell 命令。**Windows 写 PowerShell 一定要设 `shell=\"powershell\"`**,server 自动处理转义 |
 
 ### 本地 MCP（`argus-files:*`）—— 大文件首选
 

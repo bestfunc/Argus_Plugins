@@ -101,24 +101,34 @@ L3 每次都要新验证码，没有快路径。
 - 内网 HTTP → `create_tunnel` 映射 80 端口，用 `proxy_api_get`（L1）/`proxy_api`（L2）访问
 - 内网数据库 → `create_tunnel` 映射 3306 端口，用 `execute_select`（L1）/`execute_sql`（L3）查询
 
-## Windows PowerShell 特殊字符
+## Windows PowerShell 转义 — 直接设 `shell="powershell"` 即可
 
-通过 `cmd /c` 执行时，PowerShell 的 `$`、`|`、`{}`、引号等会被 cmd 转义吃掉。
-**复杂 PowerShell 用 `-encodedcommand`**：
+`run_command` / `run_safe_command` 都接受 `shell` 参数:
+- `shell="powershell"` — server **自动**做 UTF-16 LE base64 编码 + `powershell -NoProfile -EncodedCommand`,
+  AI 直接写自然 PowerShell 脚本,**不用自己 base64**,转义问题彻底消失
+- `shell="cmd"` / 不传 — 走原 `cmd /c`(适合 dir / tasklist / sc 等经典 cmd 命令)
+- `shell="sh"` / `"bash"` — Linux 上用,跟默认一样(目前 agent 端都是 sh -c)
 
-```bash
-# 在 Claude Code 本地用 Bash 编码
-echo -n '你的PowerShell命令' | iconv -t UTF-16LE | base64
-```
-
-**必须用 encodedcommand 的场景**：
-- `$` 变量（`$env:`, `$_`, `$p`）
-- 管道 `|` + Where/Select
-- 花括号 `{}`
-- 引号嵌套
+**什么时候必须设 `shell="powershell"`**:
+- 命令含 `$_` / `$env:` / `$p` 等变量
+- 含管道 `|` + `Where-Object` / `Select-Object`
+- 含花括号 `{}` 或引号嵌套
 - 多行脚本
 
-**可以直接执行**：无特殊字符的单行，如 `powershell -Command "Get-Date"`。
+**例子**:
+```python
+# ✅ 一次写对,自然语法
+run_command(
+    agent_id="windows-xxx",
+    command='Get-Process | Where-Object { $_.WorkingSet -gt 100MB } | Select Name,Id',
+    shell="powershell",
+    _approval_reason="..."
+)
+
+# ❌ 不设 shell → cmd parser 吃掉 $_ 和管道,结果错乱
+```
+
+**别再自己手动 base64 / EncodedCommand 了** — server 替你做。
 
 ## Agent 身份说明
 
