@@ -150,5 +150,5 @@ run_command("docker system prune -f")     # L3 清理
 - `run_safe_command` 禁止 `|` / `>` / `;` / `&`，这意味着经典的 `ps aux | grep foo` / `du -sh */` 不能直接用
   - 解决：抓原始输出到本地，由 AI 在 Claude Code 本地 bash 侧处理
   - 或者升级到 `run_command`（L3 审批）
-- Windows 上 `powershell.exe` 和 `pwsh.exe` 不在 run_safe_command 白名单（因为能执行任意代码），要走 `run_command`
+- Windows 上 `powershell.exe` 和 `pwsh.exe` 不在 run_safe_command 白名单(因为能执行任意代码),要走 `run_command` + `shell="powershell"`(server 自动 base64 处理转义,**不要自己手动 -EncodedCommand**;详见 terminal skill)
 - 排查产线机器要小心 —— 真的 `kill -9` 关键业务进程会导致产线停工，**必须**和用户三次确认

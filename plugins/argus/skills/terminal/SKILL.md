@@ -101,19 +101,24 @@ L3 每次都要新验证码，没有快路径。
 - 内网 HTTP → `create_tunnel` 映射 80 端口，用 `proxy_api_get`（L1）/`proxy_api`（L2）访问
 - 内网数据库 → `create_tunnel` 映射 3306 端口，用 `execute_select`（L1）/`execute_sql`（L3）查询
 
-## Windows PowerShell 转义 — 直接设 `shell="powershell"` 即可
+## Windows PowerShell 转义 — `run_command` 加 `shell="powershell"` 即可
 
-`run_command` / `run_safe_command` 都接受 `shell` 参数:
-- `shell="powershell"` — server **自动**做 UTF-16 LE base64 编码 + `powershell -NoProfile -EncodedCommand`,
-  AI 直接写自然 PowerShell 脚本,**不用自己 base64**,转义问题彻底消失
-- `shell="cmd"` / 不传 — 走原 `cmd /c`(适合 dir / tasklist / sc 等经典 cmd 命令)
-- `shell="sh"` / `"bash"` — Linux 上用,跟默认一样(目前 agent 端都是 sh -c)
+**`run_command` 的 `shell` 参数**(仅 L3 `run_command`,不是 `run_safe_command`):
 
-**什么时候必须设 `shell="powershell"`**:
+| `shell` 取值 | 行为 |
+|--------------|------|
+| `"powershell"` | server **自动** UTF-16 LE base64 编码 + 包成 `powershell -NoProfile -EncodedCommand <b64>` → Agent 透明跑 PowerShell。**AI 直接写自然脚本,绝不要自己 base64** |
+| `"cmd"` 或不传 / `"auto"` | Windows agent 默认 `cmd /c <command>`(适合 dir / tasklist / sc 等经典 cmd) |
+| `"sh"` / `"bash"` | Linux 上用,跟默认一样(目前 agent 端都走 sh -c) |
+
+**什么时候必须 `shell="powershell"`**:
 - 命令含 `$_` / `$env:` / `$p` 等变量
 - 含管道 `|` + `Where-Object` / `Select-Object`
 - 含花括号 `{}` 或引号嵌套
 - 多行脚本
+- 任何**只有 PowerShell 有**的 cmdlet(`Get-Process` / `Invoke-WebRequest` / `Test-Path` ...)
+
+**为什么 server 帮你 base64?** Windows 上 agent 默认 `cmd /c`,PowerShell 脚本的 `$` / `"` / `|` / `<` / `>` 会被 cmd parser 吃掉。`-EncodedCommand` 让 cmd 看到的是一个无特殊字符的 base64 token,PowerShell 内部再解码 — 转义问题彻底绕开。
 
 **例子**:
 ```python
@@ -122,11 +127,18 @@ run_command(
     agent_id="windows-xxx",
     command='Get-Process | Where-Object { $_.WorkingSet -gt 100MB } | Select Name,Id',
     shell="powershell",
-    _approval_reason="..."
+    _approval_reason="排查 windows-xxx 内存占用,看哪些进程超 100MB"
 )
 
 # ❌ 不设 shell → cmd parser 吃掉 $_ 和管道,结果错乱
+run_command(
+    agent_id="windows-xxx",
+    command='Get-Process | Where-Object { $_.WorkingSet -gt 100MB } | Select Name,Id',
+    # 缺 shell="powershell" → 实际跑 `cmd /c Get-Process ...`,管道在 cmd 里语义不同
+)
 ```
+
+> **`run_safe_command` 没有 `shell` 参数** — 它的白名单只允许 `tasklist`/`ipconfig`/`sc`/`dir` 等经典 cmd 首词,加 shell=powershell 会让首词变成 `powershell` 过不了白名单。要跑 PowerShell 一律用 `run_command`(L3 审批)。
 
 **别再自己手动 base64 / EncodedCommand 了** — server 替你做。
 

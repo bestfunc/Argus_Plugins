@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Argus 远程管理代理系统的 Claude Code plugin 市场。",
-    "version": "1.31.1"
+    "version": "1.31.2"
   },
   "plugins": [
     {
