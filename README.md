@@ -2,7 +2,7 @@
 
 [Argus](https://argus.bestfunc.com) 远程管理代理系统的 AI 助手 plugin 市场，支持 Claude Code / Qwen Code 等 CLI。
 
-一条命令接入 14 个 AI skill + 两个 MCP connector（远程 + 本地），覆盖 Agent 盘点、健康检查、故障排查、批量操作、服务器巡检、远程终端、SQL、**大文件传输**、API 代理、隧道管理、远程桌面操控、远程浏览器等场景。MCP 认证走 OAuth，首次使用自动弹出 Argus 浏览器授权页，无需手动配 token。
+一条命令接入 15 个 AI skill + 两个 MCP connector（远程 + 本地），覆盖 Agent 盘点、健康检查、故障排查、批量操作、服务器巡检、远程终端、SQL、**大文件传输**、API 代理、隧道管理、远程桌面操控、远程浏览器、**运维知识速查**等场景。MCP 认证走 OAuth，首次使用自动弹出 Argus 浏览器授权页，无需手动配 token。
 
 **双 MCP 架构：**
 - `argus` (远程 HTTP) — 38 个工具，走 `https://argus.bestfunc.com/api/mcp`
@@ -16,7 +16,7 @@
 # 1. 添加 marketplace（在 Claude Code 会话里输入）
 /plugin marketplace add bestfunc/Argus_Plugins
 
-# 2. 安装 argus plugin（包含 14 个 skill + MCP connector）
+# 2. 安装 argus plugin（包含 15 个 skill + MCP connector）
 /plugin install argus@argus-plugins
 
 # 3. 查看 MCP 连接状态
@@ -61,7 +61,7 @@ Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并写�
 
 **OAuth 授权流程**：首次使用浏览器会跳转到 Argus 授权同意页，登录 Argus 账号并同意授权后，access_token 默认 30 天有效，到期会自动静默刷新。随时可以在 Argus Console → 我 → 已授权应用 里撤销。
 
-## 内置 skill（14 个）
+## 内置 skill（15 个）
 
 按使用频次分层：
 
@@ -97,6 +97,7 @@ Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并写�
 |---|---|
 | `/argus:computer-use` | 远程桌面操控（截图/鼠标/键盘，工业软件 GUI） |
 | `/argus:remote-browser` | Chrome CDP 远程自动化（比 computer-use 优先） |
+| `/argus:secret-knowledge` | 运维秘籍速查 — 海量命令/工具/one-liner/速查表（vendored [the-book-of-secret-knowledge](https://github.com/trimstray/the-book-of-secret-knowledge)，22.8万⭐，按需 Grep 检索） |
 
 **协议说明**
 
@@ -136,3 +137,5 @@ qwen extensions update argus
 ## License
 
 Apache-2.0
+
+> `secret-knowledge` skill 内置的知识库 `reference/the-book-of-secret-knowledge.md` vendored 自 [trimstray/the-book-of-secret-knowledge](https://github.com/trimstray/the-book-of-secret-knowledge)，遵循其 **MIT License**（版权声明保留在该文件头部）。
