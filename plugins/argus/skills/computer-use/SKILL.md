@@ -25,13 +25,40 @@ allowed-tools: mcp__argus__list_agents,mcp__argus__ui_snapshot,mcp__argus__ui_ac
 判断流程：
 
 ```
-先 ui_snapshot（L1，免审批）
-├── 拿到了目标元素          → 用 ui_act(ref=...) 操作，全程不碰坐标
+不确定操作哪个窗口 → ui_snapshot(scope="windows") 先选窗口，拿 hwnd
+        ↓
+ui_snapshot(agent_id, hwnd=...)（L1，免审批）
+├── 拿到了目标元素          → 用 ui_act(ref="eN") 操作，全程不碰坐标
 ├── 返回 note 说"浏览器窗口" → 网页内容用 /argus:remote-browser（CDP），别用截图硬点
-└── 元素为空或找不到目标     → 退回 screenshot + click
+└── 元素为空或找不到目标     → 先看 roles 确认类型名，再退回 screenshot + click
 ```
 
 ## 一、语义层工具
+
+### 第 0 步：先确定操作哪个窗口
+
+**不确定目标在哪个窗口时，先列窗口**，别默认操作前台：
+
+```
+ui_snapshot(agent_id, scope="windows")
+ui_snapshot(agent_id, scope="windows", query="wps")   # 按标题/进程名过滤
+```
+
+```
+0x70588  计算器  (ApplicationFrameHost.exe) [前台]
+0x201A8  WPS Office  (wps.exe)
+0x1606F6  base-install.log - Notepad  (Notepad.exe)
+0x9026C  cmd.exe  (polter.exe) [最小化]
+```
+
+行首就是窗口句柄，填进后续调用的 `hwnd` 参数即可。**不列窗口就只能操作前台窗口**——
+想动后台程序时只能猜，而猜错的表现是**在别的窗口上执行了操作**，不会报错。
+
+标 `[最小化]` 的窗口用户看不到：操作它不会有可见反馈，也没法用截图核对。
+真要操作，先 `ui_act(hwnd=..., action="restore")` 让它显示出来。
+
+> 已过滤掉无标题窗口、工具窗口、被 DWM 隐藏(cloaked)的幽灵窗口——
+> 尤其是 UWP 会留下一堆同名的隐藏 `ApplicationFrameWindow`。
 
 ### ui_snapshot（L1）
 
