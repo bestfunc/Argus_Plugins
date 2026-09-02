@@ -178,6 +178,17 @@ argus-files:download_file(
     local_path="/tmp/app.log"
 )
 # → 返回 {status: "completed", file_size: 12345678, local_path: "..."}
+
+# 上传返回 status="completed" 的含义（v1.40 起）：
+#   Agent 已落盘 → **重新从磁盘读回算 SHA256** → 与源文件比对一致。
+#   返回里的 sha256 就是目标机上那个文件的真实摘要，verified="sha256" 表示验过。
+#   写入流程是「先写同目录临时文件 → 校验 → 原子替换」，任一步失败都不动原文件。
+#
+# 两种以前会"假装成功"、现在会明确报错的情况：
+#   - 目标 exe/dll 正被进程占用（Windows 不允许覆盖）→ 先停掉占用进程再传
+#   - 往 C:\Program Files 这类受保护目录写入，被 Windows 文件虚拟化静默重定向到
+#     %LOCALAPPDATA%\VirtualStore（创建成功、字节数正确、目标文件纹丝不动）
+#     → 报错会告诉你实际写去了哪；换可写路径或让 Agent 以管理员运行
 # 文件流直接写本地磁盘，AI context 只收到短 JSON
 ```
 
