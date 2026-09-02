@@ -5,7 +5,7 @@
 一条命令接入 15 个 AI skill + 两个 MCP connector（远程 + 本地），覆盖 Agent 盘点、健康检查、故障排查、批量操作、服务器巡检、远程终端、SQL、**大文件传输**、API 代理、隧道管理、远程桌面操控、远程浏览器、**运维知识速查**等场景。MCP 认证走 OAuth，首次使用自动弹出 Argus 浏览器授权页，无需手动配 token。
 
 **双 MCP 架构：**
-- `argus` (远程 HTTP) — 38 个工具，走 `https://argus.bestfunc.com/api/mcp`
+- `argus` (远程 HTTP) — 66 个工具，走 `https://argus.bestfunc.com/api/mcp`
 - `argus-files` (本地 stdio, 由 `@bestfunc-com/argus-file-mcp` 提供) — 3 个大文件工具，绕开 MCP base64 内联限制，AI context 开销与文件大小完全解耦
 
 ## 快速开始
@@ -95,7 +95,7 @@ Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并写�
 
 | Slash 命令 | 用途 |
 |---|---|
-| `/argus:computer-use` | 远程桌面操控（截图/鼠标/键盘，工业软件 GUI） |
+| `/argus:computer-use` | 远程桌面操控 —— 语义层（ui_snapshot/ui_act/ui_wait，按元素引用操作，免坐标）优先，截图+坐标兜底 |
 | `/argus:remote-browser` | Chrome CDP 远程自动化（比 computer-use 优先） |
 | `/argus:secret-knowledge` | 运维秘籍速查 — 海量命令/工具/one-liner/速查表（vendored [the-book-of-secret-knowledge](https://github.com/trimstray/the-book-of-secret-knowledge)，22.8万⭐，按需 Grep 检索） |
 
@@ -109,13 +109,16 @@ Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并写�
 
 ## MCP 工具
 
-本 plugin 会在你的 Claude Code 会话里注册 `argus` MCP server（`https://argus.bestfunc.com/api/mcp`），暴露 38 个远程管理工具，覆盖 agent / command / computer_use / file / sql / proxy / tunnel 七个业务组。
+本 plugin 会在你的 Claude Code 会话里注册 `argus` MCP server（`https://argus.bestfunc.com/api/mcp`），暴露 66 个工具，覆盖 agent / command / computer_use / file / sql / proxy / tunnel / sentinel 八个业务组。
+其中 43 个操作远端设备，19 个（sentinel 组）用于维护 Argus 自身的告警规则、巡检任务与知识 Skill，不接触任何被管机器。
 
 工具权限分三级：
 
-- 🟢 **L1 安全**（18 个）：直接调用
-- 🟡 **L2 半可逆**（12 个）：首次调用需邮箱验证码，同 agent 15 分钟内免验证
-- 🔴 **L3 不可逆**（8 个）：每次都要邮箱验证码
+- 🟢 **L1 安全**（45 个）：直接调用
+- 🟡 **L2 半可逆**（8 个）：首次调用需邮箱验证码，同 agent 15 分钟内免验证
+- 🔴 **L3 不可逆**（9 个）：每次都要邮箱验证码
+
+> 工具数与分级以服务端注册表为准。核对方式：`load_all_handlers()` 后遍历 `REGISTRY.all_meta()`。
 
 认证走 OAuth 2.0 + PKCE，access_token 默认 30 天有效，可在 Argus Console → 用户设置 → 已授权应用 随时撤销。
 

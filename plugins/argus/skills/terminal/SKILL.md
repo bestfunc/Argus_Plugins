@@ -168,7 +168,17 @@ run_command(
 ## 注意事项
 
 - 每次只执行一条命令，等结果再决定下一步
-- 长时间命令设合理 timeout（默认 30s，最大 300s）
+- 长时间命令设合理 timeout（默认 30s，run_safe_command 最大 120s / run_command 最大 300s）。
+  **timeout 会真正下发到 Agent**（v1.40 之前没下发，Agent 硬编码 30 秒就 kill 进程，
+  导致"我明明给了 300 秒"和"30 秒就断"同时成立）
+- **输出无条件落盘**：每次执行的完整 stdout+stderr 都写在目标机的 `output_log`
+  （`<temp>/argus-cmd/<id>.log`，保留 24 小时）。响应超过 256KB 会截断并标 `[输出已截断]`，
+  完整内容用 `read_file` / `grep_file` 去读那个文件。**不用再手写 `> out.txt 2>&1` 了**
+- **超时要看 `process_state` 分两种情况处理**：
+  - `killed_by_agent`：进程已被 Agent 终止，重跑安全，且已产生的输出就在 `output_log` 里，
+    **不需要重跑一遍来拿输出**
+  - `unknown`：Server 没等到回执，进程状态未知，重跑前先用 `tasklist` / `ps` 核实，
+    否则会起第二个实例
 - 输出过长用 `| head -50` 或 `| tail -50` 截取
 - 不要在命令中包含密码（会写入审计日志）
 - Windows 路径用 `\`
