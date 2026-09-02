@@ -38,7 +38,7 @@ allowed-tools: mcp__argus__list_agents,mcp__argus__ui_snapshot,mcp__argus__ui_ac
 列出目标窗口**可操作的元素**。**默认紧凑输出**，一行一个：
 
 ```
-ui_snapshot(agent_id)                          # 前台窗口，默认每页 50 条
+ui_snapshot(agent_id)                          # 前台窗口，默认每页 50 条；返回里先看 roles
 ui_snapshot(agent_id, query="保存")             # 按名称/AutomationId/文本检索
 ui_snapshot(agent_id, role="button")           # 只看按钮
 ui_snapshot(agent_id, role="listitem", limit=20, offset=20)   # 翻页
@@ -58,6 +58,15 @@ e23   menuitem 文件
 ```
 
 **要操作某个元素，直接把行首序号给 ui_act**：`ui_act(agent_id, ref="e7", action="click")`。
+
+**筛 `role` 之前先看 `roles`。** 每次返回都带这个窗口的角色分布（按数量降序，不受本次筛选影响）：
+
+```
+"roles": ["group 39", "button 14", "text 12", "listitem 6", "edit 3", "menuitem 3"]
+```
+
+不看它就只能瞎猜类型名——猜 `role="tab"` 而这个应用其实叫 `tabitem`，返回空，
+你还会以为界面上没有标签页。**空结果先回头看 `roles`**，而不是断定"没有"。
 
 **不要一次拉整棵树。** 界面复杂时元素上百，全拉回来既费 token 又难读。
 先用 `query` / `role` 缩小范围，用 `limit`/`offset` 翻页。返回里 `matched` 是符合条件的总数、
