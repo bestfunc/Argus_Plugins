@@ -57,8 +57,23 @@ ui_snapshot(agent_id, scope="windows", query="wps")   # 按标题/进程名过�
 标 `[最小化]` 的窗口用户看不到：操作它不会有可见反馈，也没法用截图核对。
 真要操作，先 `ui_act(hwnd=..., action="restore")` 让它显示出来。
 
-> 已过滤掉无标题窗口、工具窗口、被 DWM 隐藏(cloaked)的幽灵窗口——
-> 尤其是 UWP 会留下一堆同名的隐藏 `ApplicationFrameWindow`。
+> ⚠️ **这份清单默认不含弹出式窗口**：真 Win32 弹出菜单（class=`#32768`）、输入法候选窗、
+> 无标题的模态提示框都被滤掉了——而它们恰恰是最需要自动化去点的一类。
+> **「清单里没有」不等于「系统上没有」**，要操作它们加 `all=true`：
+>
+> ```
+> ui_snapshot(agent_id, scope="windows", all=true)   # 连无标题/工具窗口一起列，行尾带 class=
+> ```
+>
+> 返回里 `scanned` 是枚举到的窗口总数，和 `matched` 的差就是本次滤掉的量，
+> `note` 会说明滤掉了哪几类（不可见 / DWM 隐藏 / 无标题 / 工具窗口）。
+> 被 DWM 隐藏(cloaked)的幽灵窗口任何时候都不列——它们不在屏幕上，点了没有任何效果，
+> 尤其 UWP 会留下一堆同名的隐藏 `ApplicationFrameWindow`。
+>
+> 曾经踩过的坑：菜单查不到被读成"树里没有"，差点变成"要给菜单写一套 provider"的工作量。
+> 实际上 `#32768` 是独立顶层窗口，`all=true` 列出来拿到 hwnd 就能正常 snapshot / act，
+> 而且走的是真 UIA pattern（`ui_act` 回执的 `did` 会显示 `ExpandCollapsePattern.Expand`），
+> 不是退化的坐标点击。
 
 ### ui_snapshot（L1）
 
@@ -257,12 +272,24 @@ ui_act(agent_id, steps=[
 | `get_screen_info` | L1 | 分辨率 / DPI |
 | `get_clipboard` / `set_clipboard` | L1 | 剪贴板读写 |
 | `scroll` | L1 | 滚轮 |
-| `click` / `double_click` / `right_click` / `drag` | L3 | 坐标点击 |
+| `click` / `double_click` / `right_click` / `drag` | L3 | 坐标点击（click 类支持 `modifiers`） |
 | `type_text` / `key` | L3 | 键盘输入 |
 
 **坐标系统**：`click` 等的坐标基于最近一次 `screenshot` 的**图片坐标**，把那次截图返回的 `capture_meta` 一并传回来，Server 自动换算成屏幕坐标。
 
 > ⚠️ `capture_meta` 里若出现 `scale_unknown: true`，说明该 Agent 版本旧、没回传真实分辨率，**这张图的坐标不能用于点击**（传给 click 会被直接拒绝）。先 `get_screen_info` 自己换算，或改用 region 模式截图（坐标 1:1）；根治办法是升级 Agent 到 v1.40+。
+
+**归属看 `foreground`，不要看图**（v1.40.907+）：截图回执里的 `foreground` 是抓这张图那一刻的前台窗口（hwnd / pid / 进程名 / 类名 / 标题）。同款程序开多个实例时（标题相同、窗口位置重合），两张全屏截图**看起来完全一样**，「我的窗口没开出来」和「我的窗口在别人后面」在图上分不出来。点之前先核对 `foreground.hwnd` 是不是目标，不是就先激活——否则点击落在压在上面的那个窗口里，**而且不会报错**。
+
+> 真实代价：曾经因为没核对归属，`Ctrl+Shift+N` 在别人的进程里开了一个新窗口，而截图上它看起来就像"我的第二个窗口开出来了"。发现它靠的是"这个新窗口不在我的日志里"，不是靠看。
+
+**修饰键**（v1.40.907+）：`click` / `double_click` / `right_click` 支持 `modifiers=["ctrl"]`，点击期间按住。终端里的 OSC 8 超链接要 ctrl+click 才打开，普通点击无效；文件列表多选用 ctrl / shift。
+
+```
+click(agent_id, x=.., y=.., capture_meta=.., modifiers=["ctrl"])
+```
+
+> 回执里的 `modifiers` 是**实际按住的**。请求了却没回（老 Agent），返回里会带 `warning` 明说"这次是不带修饰键的普通点击"——别把它当成 ctrl+click 成功了。
 
 **文字输入**：长文本/中文用 `set_clipboard`（L1）+ `key("ctrl+v")`（L3），比 `type_text` 快且不受输入法影响。但元素在语义层可见时，直接 `ui_act(action="set_value")` 更好。
 
