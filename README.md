@@ -2,11 +2,11 @@
 
 [Argus](https://argus.bestfunc.com) 远程管理代理系统的 AI 助手 plugin 市场，支持 Claude Code / Qwen Code 等 CLI。
 
-一条命令接入 15 个 AI skill + 两个 MCP connector（远程 + 本地），覆盖 Agent 盘点、健康检查、故障排查、批量操作、服务器巡检、远程终端、SQL、**大文件传输**、API 代理、隧道管理、远程桌面操控、远程浏览器、**运维知识速查**等场景。MCP 认证走 OAuth，首次使用自动弹出 Argus 浏览器授权页，无需手动配 token。
+一条命令接入 16 个 AI skill + 两个 MCP connector（远程 + 本地），覆盖 Agent 盘点、健康检查、故障排查、批量操作、服务器巡检、远程终端、SQL、**大文件传输**、API 代理、隧道管理、远程桌面操控、远程浏览器、**运维知识速查**等场景。MCP 认证走 OAuth，首次使用自动弹出 Argus 浏览器授权页，无需手动配 token。
 
 **双 MCP 架构：**
-- `argus` (远程 HTTP) — 66 个工具，走 `https://argus.bestfunc.com/api/mcp`
-- `argus-files` (本地 stdio, 由 `@bestfunc-com/argus-file-mcp` 提供) — 3 个大文件工具，绕开 MCP base64 内联限制，AI context 开销与文件大小完全解耦
+- `argus` (远程 HTTP) — 73 个工具，走 `https://argus.bestfunc.com/api/mcp`
+- `argus-files` (本地 stdio, 由 `@bestfunc-com/argus-file-mcp` 提供) — 4 个大文件/直传工具，绕开 MCP base64 内联限制，AI context 开销与文件大小完全解耦
 
 ## 快速开始
 
@@ -16,7 +16,7 @@
 # 1. 添加 marketplace（在 Claude Code 会话里输入）
 /plugin marketplace add bestfunc/Argus_Plugins
 
-# 2. 安装 argus plugin（包含 15 个 skill + MCP connector）
+# 2. 安装 argus plugin（包含 16 个 skill + MCP connector）
 /plugin install argus@argus-plugins
 
 # 3. 查看 MCP 连接状态
@@ -61,7 +61,7 @@ Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并写�
 
 **OAuth 授权流程**：首次使用浏览器会跳转到 Argus 授权同意页，登录 Argus 账号并同意授权后，access_token 默认 30 天有效，到期会自动静默刷新。随时可以在 Argus Console → 我 → 已授权应用 里撤销。
 
-## 内置 skill（15 个）
+## 内置 skill（16 个）
 
 按使用频次分层：
 
@@ -82,6 +82,7 @@ Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并写�
 | `/argus:sql-query` | SQL 查询（只读 L1 + 全量 L3） |
 | `/argus:api-query` | HTTP API 代理（GET L1 + 全方法 L2） |
 | `/argus:tunnel` | 端口映射/P2P/direct 三类隧道管理 |
+| `/argus:agent-version-manage` | Agent 版本管理 — 上传安装包/列版本/查更新记录/推送升级（推送是 🔴 L3，推错包要到现场救） |
 
 **进阶与组合**
 
@@ -109,14 +110,14 @@ Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并写�
 
 ## MCP 工具
 
-本 plugin 会在你的 Claude Code 会话里注册 `argus` MCP server（`https://argus.bestfunc.com/api/mcp`），暴露 66 个工具，覆盖 agent / command / computer_use / file / sql / proxy / tunnel / sentinel 八个业务组。
+本 plugin 会在你的 Claude Code 会话里注册 `argus` MCP server（`https://argus.bestfunc.com/api/mcp`），暴露 73 个工具，覆盖 agent / command / computer_use / file / sql / proxy / tunnel / sentinel / software / version 十个业务组。
 其中 43 个操作远端设备，19 个（sentinel 组）用于维护 Argus 自身的告警规则、巡检任务与知识 Skill，不接触任何被管机器。
 
 工具权限分三级：
 
-- 🟢 **L1 安全**（45 个）：直接调用
-- 🟡 **L2 半可逆**（8 个）：首次调用需邮箱验证码，同 agent 15 分钟内免验证
-- 🔴 **L3 不可逆**（9 个）：每次都要邮箱验证码
+- 🟢 **L1 安全**（52 个）：直接调用
+- 🟡 **L2 半可逆**（10 个）：首次调用需邮箱验证码，同 agent 15 分钟内免验证
+- 🔴 **L3 不可逆**（11 个）：每次都要邮箱验证码
 
 > 工具数与分级以服务端注册表为准。核对方式：`load_all_handlers()` 后遍历 `REGISTRY.all_meta()`。
 

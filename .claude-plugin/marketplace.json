@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "Argus 远程管理代理系统的 Claude Code plugin 市场。",
-    "version": "1.32.28"
+    "version": "1.32.29"
   },
   "plugins": [
     {
       "name": "argus",
       "source": "./plugins/argus",
-      "description": "Argus 一站式接入：15 个 AI skill + OAuth 自动授权的 MCP connector。"
+      "description": "Argus 一站式接入：16 个 AI skill + OAuth 自动授权的 MCP connector。"
     }
   ]
 }
