@@ -14122,6 +14122,7 @@ async function ensureToken(cfg) {
 
 // src/transfers.ts
 var import_promises2 = require("node:fs/promises");
+var import_node_crypto2 = require("node:crypto");
 var import_node_path2 = require("node:path");
 function authHeaders(cfg) {
   return { Authorization: `Bearer ${cfg.access_token}` };
@@ -14130,10 +14131,12 @@ async function uploadFile(cfg, agentId, localPath, remotePath) {
   const fileStat = await (0, import_promises2.stat)(localPath);
   const filename = (0, import_node_path2.basename)(localPath);
   const fileBuf = await (0, import_promises2.readFile)(localPath);
-  log(`[upload] ${localPath} (${fileStat.size} bytes) \u2192 ${agentId}:${remotePath}`);
+  const sha256 = (0, import_node_crypto2.createHash)("sha256").update(fileBuf).digest("hex");
+  log(`[upload] ${localPath} (${fileStat.size} bytes, sha256=${sha256}) \u2192 ${agentId}:${remotePath}`);
   const form = new FormData();
   form.append("agent_id", agentId);
   form.append("remote_path", remotePath);
+  form.append("expected_sha256", sha256);
   form.append("file", new Blob([fileBuf]), filename);
   const res = await fetch(`${cfg.endpoint}/api/transfers/upload`, {
     method: "POST",
@@ -14145,7 +14148,9 @@ async function uploadFile(cfg, agentId, localPath, remotePath) {
     throw new Error(`\u4E0A\u4F20\u5931\u8D25: HTTP ${res.status} \u2014 ${text}`);
   }
   const transfer = await res.json();
-  return await waitForComplete(cfg, transfer.id);
+  const done = await waitForComplete(cfg, transfer.id);
+  const unverified = /未做内容校验/.test(done.error_msg || "");
+  return { ...done, sha256, content_verified: !unverified };
 }
 async function downloadFile(cfg, agentId, remotePath, localPath) {
   log(`[download] ${agentId}:${remotePath} \u2192 ${localPath}`);
@@ -14197,7 +14202,7 @@ var import_node_fs = require("node:fs");
 var import_promises3 = require("node:fs/promises");
 var import_node_fs2 = require("node:fs");
 var import_node_path3 = require("node:path");
-var import_node_crypto2 = require("node:crypto");
+var import_node_crypto3 = require("node:crypto");
 var import_node_stream = require("node:stream");
 var UPLOAD_PATH = "/api/admin/versions/upload";
 var MAX_SIZE_BYTES = 2 * 1024 * 1024 * 1024;
@@ -14241,14 +14246,14 @@ function inferFromFilename(filename) {
   };
 }
 async function sha256File(path) {
-  const h = (0, import_node_crypto2.createHash)("sha256");
+  const h = (0, import_node_crypto3.createHash)("sha256");
   for await (const chunk of (0, import_node_fs.createReadStream)(path)) {
     h.update(chunk);
   }
   return h.digest("hex");
 }
 function buildMultipartBody(fields, filePath, fileFieldName, fileName, fileSize) {
-  const boundary = `----ArgusLocalMCP${(0, import_node_crypto2.randomBytes)(16).toString("hex")}`;
+  const boundary = `----ArgusLocalMCP${(0, import_node_crypto3.randomBytes)(16).toString("hex")}`;
   const CRLF = "\r\n";
   const head = Buffer.from(
     fields.map(
@@ -14396,6 +14401,102 @@ function extractDetail(body) {
   return "";
 }
 
+// src/uploadDir.ts
+var import_promises4 = require("node:fs/promises");
+var import_node_path4 = require("node:path");
+var WIN_BAD_CHARS = /[<>:"|?*\x00-\x1f]/;
+var WIN_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\..*)?$/i;
+function isWindowsAgent(agentId) {
+  return agentId.startsWith("windows-");
+}
+function joinRemote(remoteDir, relParts, windows) {
+  const s = windows ? "\\" : "/";
+  const base = remoteDir.replace(/[\\/]+$/, "");
+  return [base, ...relParts].join(s);
+}
+async function walk(root, parts = [], acc) {
+  const out = acc ?? { files: [], symlinks: [], emptyDirs: [] };
+  const entries = await (0, import_promises4.readdir)((0, import_node_path4.join)(root, ...parts), { withFileTypes: true });
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  if (entries.length === 0 && parts.length > 0) out.emptyDirs.push(parts);
+  for (const e of entries) {
+    const p = [...parts, e.name];
+    if (e.isSymbolicLink()) out.symlinks.push(p);
+    else if (e.isDirectory()) await walk(root, p, out);
+    else if (e.isFile()) out.files.push(p);
+  }
+  return out;
+}
+async function uploadDir(cfg, agentId, localDir, remoteDir, opts = {}) {
+  const st = await (0, import_promises4.lstat)(localDir);
+  if (!st.isDirectory()) throw new Error(`local_dir \u4E0D\u662F\u76EE\u5F55: ${localDir}`);
+  const windows = isWindowsAgent(agentId);
+  const uploader = opts.uploader ?? uploadFile;
+  const concurrency = Math.max(1, Math.min(opts.concurrency ?? 4, 8));
+  const w = await walk(localDir);
+  const results = [];
+  for (const p of w.symlinks) {
+    results.push({
+      relative_path: p.join("/"),
+      remote_path: joinRemote(remoteDir, p, windows),
+      status: "skipped",
+      error: "\u7B26\u53F7\u94FE\u63A5\u4E0D\u8DDF\u968F\uFF08\u907F\u514D\u628A\u76EE\u5F55\u5916\u7684\u6587\u4EF6\u5E26\u4E0A\u53BB\u6216\u8FDB\u5165\u5FAA\u73AF\uFF09"
+    });
+  }
+  const todo = [];
+  for (const p of w.files) {
+    const slot = {
+      relative_path: p.join("/"),
+      remote_path: joinRemote(remoteDir, p, windows),
+      status: "failed"
+    };
+    results.push(slot);
+    const bad = windows ? p.find((seg) => WIN_BAD_CHARS.test(seg) || WIN_RESERVED.test(seg) || /[. ]$/.test(seg)) : void 0;
+    if (bad !== void 0) {
+      slot.error = `\u8DEF\u5F84\u6BB5 "${bad}" \u5728 Windows \u4E0A\u4E0D\u662F\u5408\u6CD5\u6587\u4EF6\u540D\uFF0C\u672A\u4E0A\u4F20\uFF08\u4E0D\u66FF\u4F60\u6539\u540D\uFF09`;
+      continue;
+    }
+    todo.push({ parts: p, slot });
+  }
+  log(`[upload_dir] ${localDir} \u2192 ${agentId}:${remoteDir}\uFF0C${todo.length} \u4E2A\u6587\u4EF6\uFF0C\u5E76\u53D1 ${concurrency}`);
+  let next = 0;
+  const worker = async () => {
+    while (next < todo.length) {
+      const { parts, slot } = todo[next++];
+      try {
+        const r = await uploader(cfg, agentId, (0, import_node_path4.join)(localDir, ...parts), slot.remote_path);
+        slot.status = r.status === "completed" ? "completed" : "failed";
+        slot.size = r.file_size;
+        slot.sha256 = r.sha256;
+        slot.content_verified = r.content_verified;
+        slot.transfer_id = r.id;
+        if (r.error_msg) slot.error = r.error_msg;
+      } catch (err) {
+        slot.status = "failed";
+        slot.error = err instanceof Error ? err.message : String(err);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(concurrency, todo.length) }, worker));
+  results.sort((a, b) => a.relative_path.localeCompare(b.relative_path));
+  const count = (s) => results.filter((r) => r.status === s).length;
+  const completed = count("completed");
+  const unverified = results.filter((r) => r.status === "completed" && r.content_verified === false).length;
+  return {
+    ok: completed === results.length && results.length > 0 && unverified === 0,
+    agent_id: agentId,
+    local_dir: localDir,
+    remote_dir: remoteDir,
+    total: results.length,
+    completed,
+    failed: count("failed"),
+    skipped: count("skipped"),
+    unverified,
+    empty_dirs: w.emptyDirs.map((p) => p.join("/")),
+    files: results
+  };
+}
+
 // src/index.ts
 var server = new Server(
   {
@@ -14423,6 +14524,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           remote_path: { type: "string", description: "Agent \u5BBF\u4E3B\u673A\u4E0A\u7684\u76EE\u6807\u8DEF\u5F84\uFF08\u542B\u6587\u4EF6\u540D\uFF09" }
         },
         required: ["agent_id", "local_path", "remote_path"]
+      }
+    },
+    {
+      name: "upload_dir",
+      description: '\u3010\u76EE\u5F55\u76F4\u4F20\u3011\u628A\u672C\u5730\u4E00\u4E2A\u76EE\u5F55\u6574\u4F53\u4E0A\u4F20\u5230 Agent \u5BBF\u4E3B\u673A\u7684 remote_dir \u4E0B\uFF0C**\u4FDD\u7559\u76F8\u5BF9\u8DEF\u5F84\u548C\u539F\u6587\u4EF6\u540D**\uFF08\u6309\u76EE\u6807\u673A OS \u7528 \\ \u6216 / \u62FC\u8DEF\u5F84\uFF0C\u7236\u76EE\u5F55\u81EA\u52A8\u521B\u5EFA\uFF09\u3002\u4E0E upload_file \u540C\u901A\u9053\u3001\u540C\u9274\u6743\uFF0C\u9010\u6587\u4EF6\u4E0A\u4F20\uFF08\u9ED8\u8BA4\u5E76\u53D1 4\uFF09\u3002\n\n\u6BCF\u4E2A\u6587\u4EF6\u90FD\u6709\u81EA\u5DF1\u7684\u7ED3\u679C\uFF1A\u672C\u5730 SHA256\u3001\u76EE\u6807\u8DEF\u5F84\u3001status\u3001content_verified\uFF08Server \u6BD4\u5BF9\u6536\u5230\u7684\u5B57\u8282 + Agent \u843D\u76D8\u540E\u8BFB\u56DE\u6BD4\u5BF9\uFF0C\u4E24\u6BB5\u90FD\u8FC7\u624D\u662F true\uFF09\u3002**\u4E00\u4E2A\u6587\u4EF6\u5931\u8D25\u4E0D\u5F71\u54CD\u5176\u4F59\uFF0C\u4E5F\u4E0D\u4F1A\u88AB\u6574\u4F53\u7ED3\u679C\u63A9\u76D6**\uFF1A\u9876\u5C42 ok \u53EA\u6709\u5728\u5168\u90E8 completed \u4E14\u5168\u90E8\u6821\u9A8C\u8FC7\u65F6\u624D\u662F true\uFF0C\u5426\u5219\u770B files[] \u91CC status!="completed" \u6216 content_verified=false \u7684\u6761\u76EE\u3002\n\n\u4E0D\u505A\u7684\u4E8B\uFF08\u90FD\u4F1A\u5728\u7ED3\u679C\u91CC\u5982\u5B9E\u5217\u51FA\uFF09\uFF1A\u7B26\u53F7\u94FE\u63A5\u4E0D\u8DDF\u968F\uFF08status=skipped\uFF09\uFF1B\u7A7A\u76EE\u5F55\u4E0D\u4F1A\u5EFA\u51FA\u6765\uFF08empty_dirs\uFF09\uFF1B\u76EE\u6807\u662F Windows \u65F6\u6587\u4EF6\u540D\u542B <>:"|?* \u6216\u4EE5\u70B9/\u7A7A\u683C\u7ED3\u5C3E\u3001\u6216\u662F CON/NUL \u7B49\u4FDD\u7559\u540D\u7684\u6587\u4EF6\u4E0D\u4E0A\u4F20\u3001\u4E0D\u66FF\u4F60\u6539\u540D\uFF08status=failed\uFF09\u3002\u540C\u540D\u6587\u4EF6\u4F1A\u88AB\u8986\u76D6\uFF08\u4E0E upload_file \u4E00\u81F4\uFF09\u3002',
+      inputSchema: {
+        type: "object",
+        properties: {
+          agent_id: { type: "string", description: "\u76EE\u6807 Agent ID" },
+          local_dir: { type: "string", description: "\u672C\u5730\u76EE\u5F55\u7EDD\u5BF9\u8DEF\u5F84\uFF08AI \u8FD0\u884C\u673A\u5668\u4E0A\u7684\u76EE\u5F55\uFF09" },
+          remote_dir: { type: "string", description: "Agent \u5BBF\u4E3B\u673A\u4E0A\u7684\u76EE\u6807\u76EE\u5F55\u7EDD\u5BF9\u8DEF\u5F84\uFF0C\u672C\u5730\u76EE\u5F55\u91CC\u7684\u5185\u5BB9\u653E\u5230\u5B83\u4E0B\u9762\uFF08\u4E0D\u542B\u672C\u5730\u76EE\u5F55\u81EA\u8EAB\u7684\u540D\u5B57\uFF09" },
+          concurrency: { type: "integer", description: "\u5E76\u53D1\u4E0A\u4F20\u6570\uFF0C\u9ED8\u8BA4 4\uFF0C\u8303\u56F4 1~8" }
+        },
+        required: ["agent_id", "local_dir", "remote_dir"]
       }
     },
     {
@@ -14497,6 +14612,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const result = await uploadFile(cfg, agent_id, local_path, remote_path);
       return {
         content: [{ type: "text", text: JSON.stringify(result, null, 2) }]
+      };
+    }
+    if (name === "upload_dir") {
+      const { agent_id, local_dir, remote_dir, concurrency } = args;
+      if (typeof agent_id !== "string" || typeof local_dir !== "string" || typeof remote_dir !== "string" || !agent_id || !local_dir || !remote_dir) {
+        throw new McpError(ErrorCode.InvalidParams, "agent_id / local_dir / remote_dir \u5FC5\u586B");
+      }
+      const result = await uploadDir(cfg, agent_id, local_dir, remote_dir, {
+        concurrency: typeof concurrency === "number" ? concurrency : void 0
+      });
+      return {
+        content: [{ type: "text", text: JSON.stringify(result, null, 2) }],
+        isError: !result.ok
       };
     }
     if (name === "upload_to_sandbox") {
