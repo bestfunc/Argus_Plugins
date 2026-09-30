@@ -15,7 +15,7 @@ Argus MCP 工具按风险等级分三档。调用前先判断工具属于哪档�
 |------|------|------|
 | 🟢 **L1 安全** | 只读或可逆；默认开放，直接调用 | `list_agents`, `get_agent_config`, `execute_select`, `run_safe_command`, `proxy_api_get`, `list_files`, `read_file`, `grep_file`, `file_search`, `download_file`, `list_tunnels`, `tunnel_stats`, `toggle_tunnel`, `get_screen_info`, `get_ui_elements`, `screenshot`, `wait_stable`, `get_clipboard`, `set_clipboard`, `scroll` |
 | 🟡 **L2 半可逆** | 可读敏感数据或配置可恢复；首次调用要邮箱授权，15 分钟快路径 | `upload_to_sandbox`, `archive_file`, `unarchive_file`, `proxy_api`, `create_tunnel`, `delete_tunnel`, `update_tunnel`, `set_agent_direct_listen` |
-| 🔴 **L3 不可逆** | 可造成生产事故；**每次**都要邮箱审批，无快路径 | `run_command`, `execute_sql`, `upload_file`, `click`, `double_click`, `right_click`, `drag`, `key`, `type_text` |
+| 🔴 **L3 不可逆** | 可造成生产事故；**每次**都要邮箱审批，无快路径 | `run_command`, `execute_sql`, `upload_file`, `click`, `double_click`, `right_click`, `drag`, `key`, `type_text`, `ui_act`, `computer_batch`, `browser_act` |
 
 > 工具等级和清单以 `tools/list` 返回的 description 为准（Server 在 description 里会明确标注）。
 

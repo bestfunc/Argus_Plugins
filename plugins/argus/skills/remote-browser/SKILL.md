@@ -1,14 +1,40 @@
 ---
 name: remote-browser
 display_name: 远程浏览器
-description: 通过 Argus 隧道 + Chrome CDP 远程控制 Agent 宿主机上的浏览器，执行网页自动化测试、截图、表单填写等操作。启动 Chrome / 清理用 run_command（L3），隧道增删改用 create/delete_tunnel（L2）。
+description: 远程读取 / 操作 Agent 宿主机浏览器里的网页。首选 MCP 原生的 browser_snapshot / browser_act / browser_navigate / browser_screenshot（v1.42，Agent 经本机 loopback 连 CDP，不建隧道、不写脚本）；只有需要完整 DevTools、抓网络请求、改 Cookie 或跑自写 CDP 脚本时，才走「隧道 + 本地脚本」的老路（启动 Chrome / 清理用 run_command L3，隧道用 create/delete_tunnel L2）。
 user-invocable: true
-allowed-tools: Bash,mcp__argus__list_agents,mcp__argus__run_safe_command,mcp__argus__run_command,mcp__argus__create_tunnel,mcp__argus__delete_tunnel,mcp__argus__list_tunnels
+allowed-tools: Bash,mcp__argus__browser_snapshot,mcp__argus__browser_screenshot,mcp__argus__browser_navigate,mcp__argus__browser_act,mcp__argus__list_agents,mcp__argus__run_safe_command,mcp__argus__run_command,mcp__argus__create_tunnel,mcp__argus__delete_tunnel,mcp__argus__list_tunnels
 ---
 
 # 远程浏览器（Chrome CDP）
 
-通过 Argus Agent 在远程 Windows/Linux 宿主机上启动 Chrome 调试模式，
+## 先选路：MCP 原生工具，还是隧道 + 脚本
+
+| | **browser_* 工具（v1.42，首选）** | 隧道 + 本地脚本（老路） |
+|---|---|---|
+| 链路 | Agent → 本机 127.0.0.1:调试端口 | Server 隧道端口 → Agent → 调试端口 |
+| 要做的事 | 浏览器开着调试端口即可 | 启 Chrome（L3）+ 建隧道（L2）+ 本地写 WebSocket 脚本 + 事后清理 |
+| 看网页 | `browser_snapshot` 直接出元素清单 / 正文 | 自己拼 DOM 查询 |
+| 操作 | `browser_act` 按 ref 点 / 写值，带遮挡检查和读回确认 | 自己算坐标发 `Input.dispatchMouseEvent` |
+| 适用 | 日常：查页面、填表单、点按钮、读结果 | 需要完整 DevTools、抓 Network、改 Cookie、跑 Playwright 级脚本 |
+
+**默认走 browser_* 工具**，用法见 `computer-use` skill 第十一节。最短路径：
+
+```
+browser_snapshot(agent_id, mode="tabs")                  # L1：列标签页，确认调试端口可用
+browser_snapshot(agent_id, tab="erp")                    # L1：元素清单，行首 b3 是 ref
+browser_act(agent_id, tab="erp", steps=[...])            # L3：一次审批跑完一串操作
+browser_snapshot(agent_id, tab="erp", mode="text")       # L1：读结果
+```
+
+- 报 `CDP_UNAVAILABLE` = 浏览器没开调试端口 → 按下面「启动 Chrome 调试模式」开一个（**不要**加 `0.0.0.0`）
+- 给服务 Agent 也行：有在线会话时自动转到会话子 Agent，没有时从服务 Agent 走 loopback 同样连得上
+- 不限 Windows：Linux / macOS Agent 上的浏览器同样可用
+- 老 Agent（v1.42 之前）报 `AGENT_TOO_OLD`，这时才只能走下面的隧道方案
+
+---
+
+以下是**隧道 + 本地脚本**方案：通过 Argus Agent 在远程宿主机上启动 Chrome 调试模式，
 经 Argus 隧道将 CDP 端口映射到 Server，然后用 WebSocket 控制浏览器。
 
 ## 架构
@@ -54,10 +80,16 @@ Windows(用 `shell="powershell"`,自然脚本无需 base64):
 run_command(
     agent_id="windows-xxx-bestf",
     shell="powershell",
-    command='Start-Process "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" -ArgumentList "--remote-debugging-port=9222","--remote-debugging-address=0.0.0.0","--user-data-dir=C:\\chrome-debug-profile","<目标URL>"',
+    command='Start-Process "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" -ArgumentList "--remote-debugging-port=9222","--user-data-dir=C:\\chrome-debug-profile","<目标URL>"',
     _approval_reason="..."
 )
 ```
+
+> ⚠️ **不要加 `--remote-debugging-address=0.0.0.0`**。CDP 端口没有任何认证，对外监听等于让同网段任何人
+> 完全控制这个浏览器（含已登录的会话）。隧道的 `target_host` 是 `127.0.0.1`，Chrome 只监听本机就够了。
+>
+> **Chrome 136+ 对默认用户目录会忽略 `--remote-debugging-port`**，必须像上面这样给非默认的 `--user-data-dir`；
+> 这是独立配置，原来的登录态不在里面，需要重新登录。
 
 Linux：
 ```bash
