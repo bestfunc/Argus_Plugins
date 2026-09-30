@@ -96,8 +96,8 @@ Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并写�
 
 | Slash 命令 | 用途 |
 |---|---|
-| `/argus:computer-use` | 远程桌面操控 —— 语义层（ui_snapshot/ui_act/ui_wait，按元素引用操作，免坐标）优先，截图+坐标兜底 |
-| `/argus:remote-browser` | Chrome CDP 远程自动化（比 computer-use 优先） |
+| `/argus:computer-use` | 远程桌面操控 —— 语义层（ui_snapshot/ui_act/ui_wait，按元素引用操作，免坐标）优先；网页走 browser_*（CDP）；截图+坐标兜底，坐标流程用 computer_batch 一次审批；支持多显示器 |
+| `/argus:remote-browser` | 远程浏览器：首选 MCP 原生 browser_* 工具；需要完整 DevTools / 自写 CDP 脚本时走隧道方案 |
 | `/argus:secret-knowledge` | 运维秘籍速查 — 海量命令/工具/one-liner/速查表（vendored [the-book-of-secret-knowledge](https://github.com/trimstray/the-book-of-secret-knowledge)，22.8万⭐，按需 Grep 检索） |
 
 **协议说明**
@@ -110,7 +110,7 @@ Qwen Code 会自动把 Claude plugin 格式转成 Qwen extensions 格式并写�
 
 ## MCP 工具
 
-本 plugin 会在你的 Claude Code 会话里注册 `argus` MCP server（`https://argus.bestfunc.com/api/mcp`），暴露 73 个工具，覆盖 agent / command / computer_use / file / sql / proxy / tunnel / sentinel / software / version 十个业务组。
+本 plugin 会在你的 Claude Code 会话里注册 `argus` MCP server（`https://argus.bestfunc.com/api/mcp`），暴露 91 个工具，覆盖 agent / command / computer_use / browser / file / sql / proxy / tunnel / sentinel / software / version 十一个业务组。
 其中 43 个操作远端设备，19 个（sentinel 组）用于维护 Argus 自身的告警规则、巡检任务与知识 Skill，不接触任何被管机器。
 
 工具权限分三级：

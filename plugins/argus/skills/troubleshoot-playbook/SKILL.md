@@ -131,7 +131,7 @@ run_command("docker system prune -f")     # L3 清理
 | 要调 HTTP API | `api-query` |
 | 需要进宿主机 GUI | `computer-use` |
 | 需要开端口隧道 | `tunnel` |
-| 需要自动化 Chrome | `remote-browser` |
+| 需要读 / 操作网页 | `browser_snapshot` / `browser_act`（见 `computer-use` 第十一节；要完整 DevTools 才走 `remote-browser`） |
 
 ## L3 动作检查清单
 
